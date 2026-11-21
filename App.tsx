@@ -12,6 +12,19 @@ import FocusCard from "./src/components/FocusCard";
 
 const weekdayLabels = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
 const hours = Array.from({ length: 17 }, (_, index) => index + 6);
+type ActivityKind = "task" | "activity" | "event" | "deep_focus";
+
+interface ActivityEntry {
+  title: string;
+  kind: ActivityKind;
+}
+
+const activityKinds: { value: ActivityKind; label: string }[] = [
+  { value: "task", label: "Tugas" },
+  { value: "activity", label: "Kegiatan" },
+  { value: "event", label: "Acara" },
+  { value: "deep_focus", label: "Fokus" },
+];
 
 function getDateKey(date: Date): string {
   const year = date.getFullYear();
@@ -26,8 +39,10 @@ export default function App() {
     getDateKey(new Date()),
   );
   const [selectedHour, setSelectedHour] = useState<number | null>(null);
-  const [activities, setActivities] = useState<Record<string, string>>({});
+  const [activities, setActivities] = useState<Record<string, ActivityEntry>>({});
   const [activityDraft, setActivityDraft] = useState("");
+  const [activityKind, setActivityKind] = useState<ActivityKind>("task");
+
 
   const today = new Date();
   const daysSinceMonday = (today.getDay() + 6) % 7;
@@ -70,7 +85,10 @@ export default function App() {
 
     setActivities((currentActivities) => ({
       ...currentActivities,
-      [activityKey]: title,
+      [activityKey]: {
+        title,
+        kind: activityKind,
+      },
     }));
   }
 
@@ -107,7 +125,11 @@ export default function App() {
               key={day.dateKey}
               accessibilityRole="button"
               accessibilityState={{ selected: isSelected }}
-              onPress={() => setSelectedDate(day.dateKey)}
+              onPress={() => {
+                setSelectedDate(day.dateKey);
+                setSelectedHour(null);
+                setActivityDraft("");
+              }}
               style={[
                 styles.dayButton,
                 isSelected && styles.selectedDayButton,
@@ -150,8 +172,11 @@ export default function App() {
               accessibilityRole="button"
               accessibilityState={{ selected: selectedHour === hour }}
               onPress={() => {
+                const existingActivity = activities[`${selectedDate}-${hour}`];
+
                 setSelectedHour(hour);
-                setActivityDraft(activities[`${selectedDate}-${hour}`] ?? "");
+                setActivityDraft(existingActivity?.title ?? "");
+                setActivityKind(existingActivity?.kind ?? "task");
               }}
               style={[
                 styles.slotContent,
@@ -164,7 +189,14 @@ export default function App() {
                   selectedHour === hour && styles.selectedSlotText,
                 ]}
               >
-                {activities[`${selectedDate}-${hour}`] ?? "+ Pilih slot"}
+                {activities[`${selectedDate}-${hour}`]
+                ? `${activities[`${selectedDate}-${hour}`].title} · ${
+                    activityKinds.find(
+                      (kind) =>
+                        kind.value === activities[`${selectedDate}-${hour}`].kind,
+                    )?.label ?? "Kegiatan"
+                  }`
+                : "+ Pilih slot"}
               </Text>
             </Pressable>
           </View>
@@ -182,7 +214,35 @@ export default function App() {
               style={styles.activityInput}
               accessibilityLabel="Nama kegiatan"
             />
+            <Text style={styles.kindLabel}>Jenis kegiatan</Text>
 
+            <View style={styles.kindOptions}>
+              {activityKinds.map((kind) => {
+                const isSelected = activityKind === kind.value;
+
+                return (
+                  <Pressable
+                    key={kind.value}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                    onPress={() => setActivityKind(kind.value)}
+                    style={[
+                      styles.kindOption,
+                      isSelected && styles.selectedKindOption,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.kindOptionText,
+                        isSelected && styles.selectedKindOptionText,
+                      ]}
+                    >
+                      {kind.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             <Pressable
               accessibilityRole="button"
               onPress={saveActivity}
@@ -345,5 +405,37 @@ const styles = StyleSheet.create({
     color: "#B91C1C",
     fontSize: 15,
     fontWeight: "700",
+  },
+  kindLabel: {
+    marginTop: 16,
+    marginBottom: 8,
+    color: "#334155",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  kindOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  kindOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+  },
+  selectedKindOption: {
+    borderColor: "#1D4ED8",
+    backgroundColor: "#DBEAFE",
+  },
+  kindOptionText: {
+    color: "#475569",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  selectedKindOptionText: {
+    color: "#1D4ED8",
   },
 });
