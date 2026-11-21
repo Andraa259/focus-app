@@ -74,6 +74,22 @@ export default function App() {
     }));
   }
 
+  function deleteActivity() {
+    if (selectedHour === null) {
+      return;
+    }
+
+    const activityKey = `${selectedDate}-${selectedHour}`;
+
+    setActivities((currentActivities) => {
+      const updatedActivities = { ...currentActivities };
+      delete updatedActivities[activityKey];
+      return updatedActivities;
+    });
+
+    setActivityDraft("");
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.heading}>Jadwal</Text>
@@ -173,6 +189,13 @@ export default function App() {
               style={styles.saveButton}
             >
               <Text style={styles.saveButtonText}>Simpan kegiatan</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={deleteActivity}
+              style={styles.deleteButton}
+            >
+              <Text style={styles.deleteButtonText}>Hapus kegiatan</Text>
             </Pressable>
           </View>
         )}
@@ -305,6 +328,21 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  deleteButton: {
+    marginTop: 8,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+    backgroundColor: "#FEF2F2",
+  },
+  deleteButtonText: {
+    color: "#B91C1C",
     fontSize: 15,
     fontWeight: "700",
   },
