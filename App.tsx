@@ -38,23 +38,6 @@ function formatHour(hour: number): string {
   return `${String(hour).padStart(2, "0")}:00`;
 }
 
-function cancelTemplateForDate(templateId: string) {
-  const newOverride: DateOverride = {
-    id: `${templateId}-${selectedDate}`,
-    templateId,
-    date: selectedDate,
-    action: "cancel",
-  };
-
-  setDateOverrides((currentOverrides) => [
-    ...currentOverrides.filter(
-      (item) =>
-        item.templateId !== templateId || item.date !== selectedDate,
-    ),
-    newOverride,
-  ]);
-}
-
 export default function App() {
   const [selectedDate, setSelectedDate] = useState(() =>
     getDateKey(new Date()),
@@ -238,6 +221,23 @@ export default function App() {
     setActivityDraft("");
     setActivityKind("task");
     setActivityError("");
+  }
+
+  function cancelTemplateForDate(templateId: string) {
+    const newOverride: DateOverride = {
+      id: `${templateId}-${selectedDate}`,
+      templateId,
+      date: selectedDate,
+      action: "cancel",
+    };
+
+    setDateOverrides((currentOverrides) => [
+      ...currentOverrides.filter(
+        (item) =>
+          item.templateId !== templateId || item.date !== selectedDate,
+      ),
+      newOverride,
+    ]);
   }
 
   return (

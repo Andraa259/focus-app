@@ -56,7 +56,7 @@ export function resolveOccurrence(
     return {
       status: "scheduled",
       source: "template",
-      templateId: template.id,
+      templateId: string,
       title: template.title,
       kind: template.kind,
       startHour: template.startHour,
@@ -75,7 +75,7 @@ export function resolveOccurrence(
   return {
     status: "scheduled",
     source: "override",
-    templateId: template.id,
+    templateId: string,
     title: override.replacement.title,
     kind: override.replacement.kind,
     startHour: override.replacement.startHour,
