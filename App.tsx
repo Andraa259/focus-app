@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import {
   Pressable,
@@ -9,15 +9,11 @@ import {
   TextInput,
 } from "react-native";
 import FocusCard from "./src/components/FocusCard";
+import { ActivityEntry, ActivityKind } from "./src/types/activity";
+import { loadActivities, saveActivities } from "./src/storage/activityStorage";
 
 const weekdayLabels = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
 const hours = Array.from({ length: 17 }, (_, index) => index + 6);
-type ActivityKind = "task" | "activity" | "event" | "deep_focus";
-
-interface ActivityEntry {
-  title: string;
-  kind: ActivityKind;
-}
 
 const activityKinds: { value: ActivityKind; label: string }[] = [
   { value: "task", label: "Tugas" },
@@ -40,6 +36,7 @@ export default function App() {
   );
   const [selectedHour, setSelectedHour] = useState<number | null>(null);
   const [activities, setActivities] = useState<Record<string, ActivityEntry>>({});
+  const [isActivitiesLoaded, setIsActivitiesLoaded] = useState(false);
   const [activityDraft, setActivityDraft] = useState("");
   const [activityKind, setActivityKind] = useState<ActivityKind>("task");
 
@@ -69,6 +66,31 @@ export default function App() {
         year: "numeric",
       })
     : "";
+
+  useEffect(() => {
+    async function loadSavedActivities() {
+      try {
+        const savedActivities = await loadActivities();
+        setActivities(savedActivities);
+      } catch (error) {
+        console.error("Gagal memuat kegiatan:", error);
+      } finally {
+        setIsActivitiesLoaded(true);
+      }
+    }
+
+    loadSavedActivities();
+  }, []);
+
+  useEffect(() => {
+    if (!isActivitiesLoaded) {
+      return;
+    }
+
+    saveActivities(activities).catch((error) => {
+      console.error("Gagal menyimpan kegiatan:", error);
+    });
+  }, [activities, isActivitiesLoaded]);
 
   function saveActivity() {
     if (selectedHour === null) {
