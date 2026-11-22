@@ -101,10 +101,11 @@ export default function App() {
       (activity) => activity.kind === "task" && activity.completed === true,
     ).length;
     const taskProgressText =
-    taskCount === 0
-      ? "Belum ada tugas"
-      : `${completedTaskCount} dari ${taskCount} tugas selesai`;
-
+      taskCount === 0
+        ? "Belum ada tugas"
+        : `${completedTaskCount} dari ${taskCount} tugas selesai`;
+    const taskProgressPercent =
+      taskCount === 0 ? 0 : Math.round((completedTaskCount / taskCount) * 100);
 
   useEffect(() => {
     async function loadSavedActivities() {
@@ -223,6 +224,27 @@ export default function App() {
       <View style={styles.progressCard}>
         <Text style={styles.progressTitle}>Progres tugas</Text>
         <Text style={styles.progressText}>{taskProgressText}</Text>
+        <View
+          style={styles.progressTrack}
+          accessibilityRole="progressbar"
+          accessibilityValue={{
+            min: 0,
+            max: 100,
+            now: taskProgressPercent,
+          }}
+          accessibilityLabel="Progres penyelesaian tugas"
+        >
+          <View
+            style={[
+              styles.progressFill,
+              { width: `${taskProgressPercent}%` },
+            ]}
+          />
+        </View>
+
+        <Text style={styles.progressPercent}>
+          {taskProgressPercent}%
+        </Text>
       </View>
 
       <View style={styles.weekNavigation}>
@@ -234,7 +256,7 @@ export default function App() {
         >
           <Text style={styles.weekButtonText}>‹</Text>
         </Pressable>
-        
+
         <View style={styles.weekCenter}>
           <Pressable
             accessibilityRole="button"
@@ -311,72 +333,86 @@ export default function App() {
               {formatHour(hour)}
             </Text>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ selected: selectedHour === hour }}
-              onPress={() => {
-                const activityKey = `${selectedDate}-${hour}`;
-                const existingActivity = activities[activityKey];
-
-                setSelectedHour(hour);
-                setActivityDraft(existingActivity?.title ?? "");
-                setActivityKind(existingActivity?.kind ?? "task");
-                setActivityError("");
-              }}
+            <View
               style={[
                 styles.slotContent,
                 selectedHour === hour && styles.selectedSlot,
               ]}
             >
-              <Text
-                style={[
-                  styles.emptySlot,
-                  selectedHour === hour && styles.selectedSlotText,
-                ]}
-              >
-                {(() => {
-                  const activityKey = `${selectedDate}-${hour}`;
-                  const activity = activities[activityKey];
+              {(() => {
+                const activityKey = `${selectedDate}-${hour}`;
+                const activity = activities[activityKey];
 
-                  if (!activity) {
-                    return <Text style={styles.emptySlot}>+ Pilih slot</Text>;
-                  }
-
-                  const kindLabel =
-                    activityKinds.find((kind) => kind.value === activity.kind)?.label ??
-                    "Kegiatan";
-
+                if (!activity) {
                   return (
-                    <View style={styles.activityRow}>
-                      {activity.kind === "task" && (
-                        <Pressable
-                          accessibilityRole="checkbox"
-                          accessibilityState={{ checked: Boolean(activity.completed) }}
-                          onPress={() => toggleTaskCompleted(activityKey)}
-                          style={[
-                            styles.checkbox,
-                            activity.completed && styles.checkedCheckbox,
-                          ]}
-                        >
-                          <Text style={styles.checkboxText}>
-                            {activity.completed ? "✓" : ""}
-                          </Text>
-                        </Pressable>
-                      )}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: selectedHour === hour }}
+                      onPress={() => {
+                        setSelectedHour(hour);
+                        setActivityDraft("");
+                        setActivityKind("task");
+                        setActivityError("");
+                      }}
+                      style={styles.slotSelectButton}
+                    >
+                      <Text style={styles.emptySlot}>+ Pilih slot</Text>
+                    </Pressable>
+                  );
+                }
 
+                const kindLabel =
+                  activityKinds.find((kind) => kind.value === activity.kind)?.label ??
+                  "Kegiatan";
+
+                return (
+                  <View style={styles.activityRow}>
+                    {activity.kind === "task" && (
+                      <Pressable
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: Boolean(activity.completed) }}
+                        accessibilityLabel={`Tandai ${activity.title} ${
+                          activity.completed ? "belum selesai" : "selesai"
+                        }`}
+                        onPress={() => toggleTaskCompleted(activityKey)}
+                        style={[
+                          styles.checkbox,
+                          activity.completed && styles.checkedCheckbox,
+                        ]}
+                      >
+                        <Text style={styles.checkboxText}>
+                          {activity.completed ? "✓" : ""}
+                        </Text>
+                      </Pressable>
+                    )}
+
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: selectedHour === hour }}
+                      onPress={() => {
+                        setSelectedHour(hour);
+                        setActivityDraft(activity.title);
+                        setActivityKind(activity.kind);
+                        setActivityError("");
+                      }}
+                      style={styles.activitySelectButton}
+                    >
                       <Text
                         style={[
                           styles.activityTitle,
-                          activity.completed && styles.completedActivityTitle,
+                          activity.kind === "task" &&
+                            activity.completed &&
+                            styles.completedActivityTitle,
+                          selectedHour === hour && styles.selectedActivityTitle,
                         ]}
                       >
                         {activity.title} · {kindLabel}
                       </Text>
-                    </View>
-                  );
-                })()}
-              </Text>
-            </Pressable>
+                    </Pressable>
+                  </View>
+                );
+              })()}
+            </View>
           </View>
         ))}
         {selectedHour !== null && (
@@ -677,46 +713,80 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   weekNavigation: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  marginBottom: 12,
-},
-weekTitle: {
-  color: "#0F172A",
-  fontSize: 16,
-  fontWeight: "700",
-},
-weekButton: {
-  width: 40,
-  height: 40,
-  alignItems: "center",
-  justifyContent: "center",
-  borderRadius: 12,
-  backgroundColor: "#FFFFFF",
-},
-weekButtonText: {
-  color: "#1D4ED8",
-  fontSize: 26,
-  fontWeight: "600",
-},
-todayButton: {
-  paddingHorizontal: 12,
-  paddingVertical: 8,
-  borderRadius: 10,
-  backgroundColor: "#DBEAFE",
-},
-todayButtonText: {
-  color: "#1D4ED8",
-  fontSize: 14,
-  fontWeight: "700",
-},
-weekCenter: {
-  alignItems: "center",
-},
-weekRange: {
-  marginTop: 6,
-  color: "#64748B",
-  fontSize: 12,
-},
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  weekTitle: {
+    color: "#0F172A",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  weekButton: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+  },
+  weekButtonText: {
+    color: "#1D4ED8",
+    fontSize: 26,
+    fontWeight: "600",
+  },
+  todayButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: "#DBEAFE",
+  },
+  todayButtonText: {
+    color: "#1D4ED8",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  weekCenter: {
+    alignItems: "center",
+  },
+  weekRange: {
+    marginTop: 6,
+    color: "#64748B",
+    fontSize: 12,
+  },
+  slotSelectButton: {
+    flex: 1,
+    minHeight: 48,
+    justifyContent: "center",
+  },
+  activitySelectButton: {
+    flex: 1,
+    minHeight: 48,
+    justifyContent: "center",
+    paddingVertical: 8,
+  },
+  selectedActivityTitle: {
+    color: "#1D4ED8",
+    fontWeight: "700",
+  },
+  progressTrack: {
+    height: 10,
+    marginTop: 10,
+    overflow: "hidden",
+    borderRadius: 5,
+    backgroundColor: "#BAE6FD",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 5,
+    backgroundColor: "#0284C7",
+  },
+  progressPercent: {
+    marginTop: 6,
+    color: "#075985",
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "right",
+  },
 });
