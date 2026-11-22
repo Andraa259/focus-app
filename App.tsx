@@ -30,6 +30,10 @@ function getDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function formatHour(hour: number): string {
+  return `${String(hour).padStart(2, "0")}:00`;
+}
+
 export default function App() {
   const [selectedDate, setSelectedDate] = useState(() =>
     getDateKey(new Date()),
@@ -38,6 +42,7 @@ export default function App() {
   const [activities, setActivities] = useState<Record<string, ActivityEntry>>({});
   const [isActivitiesLoaded, setIsActivitiesLoaded] = useState(false);
   const [activityDraft, setActivityDraft] = useState("");
+  const [activityError, setActivityError] = useState("");
   const [activityKind, setActivityKind] = useState<ActivityKind>("task");
 
 
@@ -66,6 +71,22 @@ export default function App() {
         year: "numeric",
       })
     : "";
+    const selectedDateActivities = Object.entries(activities)
+      .filter(([key]) => key.startsWith(`${selectedDate}-`))
+      .map(([, activity]) => activity);
+
+    const taskCount = selectedDateActivities.filter(
+      (activity) => activity.kind === "task",
+    ).length;
+
+    const completedTaskCount = selectedDateActivities.filter(
+      (activity) => activity.kind === "task" && activity.completed === true,
+    ).length;
+    const taskProgressText =
+    taskCount === 0
+      ? "Belum ada tugas"
+      : `${completedTaskCount} dari ${taskCount} tugas selesai`;
+
 
   useEffect(() => {
     async function loadSavedActivities() {
@@ -100,6 +121,7 @@ export default function App() {
     const title = activityDraft.trim();
 
     if (title.length === 0) {
+      setActivityError("Nama kegiatan wajib diisi.");
       return;
     }
 
@@ -112,7 +134,10 @@ export default function App() {
         kind: activityKind,
       },
     }));
+
+    setActivityError("");
   }
+
 
   function deleteActivity() {
     if (selectedHour === null) {
@@ -130,6 +155,24 @@ export default function App() {
     setActivityDraft("");
   }
 
+  function toggleTaskCompleted(activityKey: string) {
+    setActivities((currentActivities) => {
+      const activity = currentActivities[activityKey];
+
+      if (!activity || activity.kind !== "task") {
+        return currentActivities;
+      }
+
+      return {
+        ...currentActivities,
+        [activityKey]: {
+          ...activity,
+          completed: !activity.completed,
+        },
+      };
+    });
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.heading}>Jadwal</Text>
@@ -137,6 +180,11 @@ export default function App() {
       <Text style={styles.description}>
         {selectedDateLabel}
       </Text>
+
+      <View style={styles.progressCard}>
+        <Text style={styles.progressTitle}>Progres tugas</Text>
+        <Text style={styles.progressText}>{taskProgressText}</Text>
+      </View>
 
       <View style={styles.daysRow}>
         {days.map((day) => {
@@ -151,6 +199,8 @@ export default function App() {
                 setSelectedDate(day.dateKey);
                 setSelectedHour(null);
                 setActivityDraft("");
+                setActivityKind("task");
+                setActivityError("");
               }}
               style={[
                 styles.dayButton,
@@ -187,18 +237,20 @@ export default function App() {
         {hours.map((hour) => (
           <View key={hour} style={styles.timeSlot}>
             <Text style={styles.timeLabel}>
-              {String(hour).padStart(2, "0")}:00
+              {formatHour(hour)}
             </Text>
 
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ selected: selectedHour === hour }}
               onPress={() => {
-                const existingActivity = activities[`${selectedDate}-${hour}`];
+                const activityKey = `${selectedDate}-${hour}`;
+                const existingActivity = activities[activityKey];
 
                 setSelectedHour(hour);
                 setActivityDraft(existingActivity?.title ?? "");
                 setActivityKind(existingActivity?.kind ?? "task");
+                setActivityError("");
               }}
               style={[
                 styles.slotContent,
@@ -211,14 +263,47 @@ export default function App() {
                   selectedHour === hour && styles.selectedSlotText,
                 ]}
               >
-                {activities[`${selectedDate}-${hour}`]
-                ? `${activities[`${selectedDate}-${hour}`].title} · ${
-                    activityKinds.find(
-                      (kind) =>
-                        kind.value === activities[`${selectedDate}-${hour}`].kind,
-                    )?.label ?? "Kegiatan"
-                  }`
-                : "+ Pilih slot"}
+                {(() => {
+                  const activityKey = `${selectedDate}-${hour}`;
+                  const activity = activities[activityKey];
+
+                  if (!activity) {
+                    return <Text style={styles.emptySlot}>+ Pilih slot</Text>;
+                  }
+
+                  const kindLabel =
+                    activityKinds.find((kind) => kind.value === activity.kind)?.label ??
+                    "Kegiatan";
+
+                  return (
+                    <View style={styles.activityRow}>
+                      {activity.kind === "task" && (
+                        <Pressable
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: Boolean(activity.completed) }}
+                          onPress={() => toggleTaskCompleted(activityKey)}
+                          style={[
+                            styles.checkbox,
+                            activity.completed && styles.checkedCheckbox,
+                          ]}
+                        >
+                          <Text style={styles.checkboxText}>
+                            {activity.completed ? "✓" : ""}
+                          </Text>
+                        </Pressable>
+                      )}
+
+                      <Text
+                        style={[
+                          styles.activityTitle,
+                          activity.completed && styles.completedActivityTitle,
+                        ]}
+                      >
+                        {activity.title} · {kindLabel}
+                      </Text>
+                    </View>
+                  );
+                })()}
               </Text>
             </Pressable>
           </View>
@@ -226,16 +311,22 @@ export default function App() {
         {selectedHour !== null && (
           <View style={styles.activityForm}>
             <Text style={styles.formTitle}>
-              Kegiatan pukul {String(selectedHour).padStart(2, "0")}:00
+              Kegiatan pukul {formatHour(selectedHour)}–{formatHour(selectedHour + 1)}
             </Text>
 
             <TextInput
               value={activityDraft}
-              onChangeText={setActivityDraft}
+              onChangeText={(text) => {
+                setActivityDraft(text);
+                setActivityError("");
+              }}
               placeholder="Contoh: Belajar React Native"
               style={styles.activityInput}
               accessibilityLabel="Nama kegiatan"
             />
+            {activityError !== "" && (
+              <Text style={styles.errorText}>{activityError}</Text>
+            )}
             <Text style={styles.kindLabel}>Jenis kegiatan</Text>
 
             <View style={styles.kindOptions}>
@@ -459,5 +550,59 @@ const styles = StyleSheet.create({
   },
   selectedKindOptionText: {
     color: "#1D4ED8",
+  },
+  activityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    marginRight: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#94A3B8",
+    borderRadius: 7,
+    backgroundColor: "#FFFFFF",
+  },
+  checkedCheckbox: {
+    borderColor: "#16A34A",
+    backgroundColor: "#16A34A",
+  },
+  checkboxText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  activityTitle: {
+    flex: 1,
+    color: "#334155",
+    fontSize: 14,
+  },
+  completedActivityTitle: {
+    color: "#94A3B8",
+    textDecorationLine: "line-through",
+  },
+  errorText: {
+    marginTop: 6,
+    color: "#B91C1C",
+    fontSize: 13,
+  },
+  progressCard: {
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 14,
+    backgroundColor: "#E0F2FE",
+  },
+  progressTitle: {
+    color: "#075985",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  progressText: {
+    marginTop: 4,
+    color: "#0C4A6E",
+    fontSize: 16,
   },
 });
