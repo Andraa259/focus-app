@@ -38,6 +38,7 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState(() =>
     getDateKey(new Date()),
   );
+  const [weekOffset, setWeekOffset] = useState(0);
   const [selectedHour, setSelectedHour] = useState<number | null>(null);
   const [activities, setActivities] = useState<Record<string, ActivityEntry>>({});
   const [isActivitiesLoaded, setIsActivitiesLoaded] = useState(false);
@@ -49,8 +50,25 @@ export default function App() {
   const today = new Date();
   const daysSinceMonday = (today.getDay() + 6) % 7;
   const monday = new Date(today);
-  monday.setDate(today.getDate() - daysSinceMonday);
+  monday.setDate(today.getDate() - daysSinceMonday + weekOffset * 7);
 
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const weekRangeLabel =
+    monday.getMonth() === sunday.getMonth()
+      ? `${monday.getDate()}–${sunday.toLocaleDateString("id-ID", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })}`
+      : `${monday.toLocaleDateString("id-ID", {
+          day: "numeric",
+          month: "short",
+        })}–${sunday.toLocaleDateString("id-ID", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })}`;
   const days = weekdayLabels.map((label, index) => {
     const date = new Date(monday);
     date.setDate(monday.getDate() + index);
@@ -173,6 +191,27 @@ export default function App() {
     });
   }
 
+  function changeWeek(direction: -1 | 1) {
+    const nextWeekOffset = weekOffset + direction;
+    const nextMonday = new Date(monday);
+    nextMonday.setDate(monday.getDate() + direction * 7);
+
+    setWeekOffset(nextWeekOffset);
+    setSelectedDate(getDateKey(nextMonday));
+    setSelectedHour(null);
+    setActivityDraft("");
+    setActivityError("");
+  }
+
+  function goToToday() {
+    setWeekOffset(0);
+    setSelectedDate(getDateKey(new Date()));
+    setSelectedHour(null);
+    setActivityDraft("");
+    setActivityKind("task");
+    setActivityError("");
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.heading}>Jadwal</Text>
@@ -184,6 +223,38 @@ export default function App() {
       <View style={styles.progressCard}>
         <Text style={styles.progressTitle}>Progres tugas</Text>
         <Text style={styles.progressText}>{taskProgressText}</Text>
+      </View>
+
+      <View style={styles.weekNavigation}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Minggu sebelumnya"
+          onPress={() => changeWeek(-1)}
+          style={styles.weekButton}
+        >
+          <Text style={styles.weekButtonText}>‹</Text>
+        </Pressable>
+        
+        <View style={styles.weekCenter}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={goToToday}
+            style={styles.todayButton}
+          >
+            <Text style={styles.todayButtonText}>Hari ini</Text>
+          </Pressable>
+
+          <Text style={styles.weekRange}>{weekRangeLabel}</Text>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Minggu berikutnya"
+          onPress={() => changeWeek(1)}
+          style={styles.weekButton}
+        >
+          <Text style={styles.weekButtonText}>›</Text>
+        </Pressable>
       </View>
 
       <View style={styles.daysRow}>
@@ -605,4 +676,47 @@ const styles = StyleSheet.create({
     color: "#0C4A6E",
     fontSize: 16,
   },
+  weekNavigation: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  marginBottom: 12,
+},
+weekTitle: {
+  color: "#0F172A",
+  fontSize: 16,
+  fontWeight: "700",
+},
+weekButton: {
+  width: 40,
+  height: 40,
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: 12,
+  backgroundColor: "#FFFFFF",
+},
+weekButtonText: {
+  color: "#1D4ED8",
+  fontSize: 26,
+  fontWeight: "600",
+},
+todayButton: {
+  paddingHorizontal: 12,
+  paddingVertical: 8,
+  borderRadius: 10,
+  backgroundColor: "#DBEAFE",
+},
+todayButtonText: {
+  color: "#1D4ED8",
+  fontSize: 14,
+  fontWeight: "700",
+},
+weekCenter: {
+  alignItems: "center",
+},
+weekRange: {
+  marginTop: 6,
+  color: "#64748B",
+  fontSize: 12,
+},
 });
