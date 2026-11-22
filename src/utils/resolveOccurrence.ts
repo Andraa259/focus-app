@@ -5,6 +5,7 @@ export type ResolvedOccurrence =
   | {
       status: "scheduled";
       source: "template";
+      templateId: string;
       title: string;
       kind: RecurringTemplate["kind"];
       startHour: number;
@@ -18,6 +19,7 @@ export type ResolvedOccurrence =
   | {
       status: "scheduled";
       source: "override";
+      templateId: string;
       title: string;
       kind: RecurringTemplate["kind"];
       startHour: number;
@@ -56,7 +58,7 @@ export function resolveOccurrence(
     return {
       status: "scheduled",
       source: "template",
-      templateId: string,
+      templateId: template.id,
       title: template.title,
       kind: template.kind,
       startHour: template.startHour,
@@ -75,7 +77,7 @@ export function resolveOccurrence(
   return {
     status: "scheduled",
     source: "override",
-    templateId: string,
+    templateId: template.id,
     title: override.replacement.title,
     kind: override.replacement.kind,
     startHour: override.replacement.startHour,
