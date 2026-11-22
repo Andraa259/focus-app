@@ -12,6 +12,9 @@ import FocusCard from "./src/components/FocusCard";
 import { ActivityEntry, ActivityKind } from "./src/types/activity";
 import { loadActivities, saveActivities } from "./src/storage/activityStorage";
 import type { RecurringTemplate, Weekday } from "./src/types/recurringTemplate";
+import { sampleTemplates } from "./src/data/sampleTemplates";
+import type { DateOverride } from "./src/types/dateOverride";
+import { resolveOccurrence } from "./src/utils/resolveOccurrence";
 
 const weekdayLabels = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
 const hours = Array.from({ length: 17 }, (_, index) => index + 6);
@@ -21,18 +24,6 @@ const activityKinds: { value: ActivityKind; label: string }[] = [
   { value: "activity", label: "Kegiatan" },
   { value: "event", label: "Acara" },
   { value: "deep_focus", label: "Fokus" },
-];
-
-const sampleTemplates: RecurringTemplate[] = [
-  {
-    id: "sample-monday-study",
-    title: "Belajar rutin",
-    kind: "deep_focus",
-    weekday: 1,
-    startHour: 9,
-    durationHours: 1,
-    activeFrom: "2000-01-01",
-  },
 ];
 
 function getDateKey(date: Date): string {
@@ -47,6 +38,23 @@ function formatHour(hour: number): string {
   return `${String(hour).padStart(2, "0")}:00`;
 }
 
+function cancelTemplateForDate(templateId: string) {
+  const newOverride: DateOverride = {
+    id: `${templateId}-${selectedDate}`,
+    templateId,
+    date: selectedDate,
+    action: "cancel",
+  };
+
+  setDateOverrides((currentOverrides) => [
+    ...currentOverrides.filter(
+      (item) =>
+        item.templateId !== templateId || item.date !== selectedDate,
+    ),
+    newOverride,
+  ]);
+}
+
 export default function App() {
   const [selectedDate, setSelectedDate] = useState(() =>
     getDateKey(new Date()),
@@ -58,7 +66,7 @@ export default function App() {
   const [activityDraft, setActivityDraft] = useState("");
   const [activityError, setActivityError] = useState("");
   const [activityKind, setActivityKind] = useState<ActivityKind>("task");
-
+  const [dateOverrides, setDateOverrides] = useState<DateOverride[]>([]);
 
   const today = new Date();
   const daysSinceMonday = (today.getDay() + 6) % 7;
@@ -102,17 +110,12 @@ export default function App() {
         year: "numeric",
       })
     : "";
-  const selectedDateWeekday =
-  ((new Date(`${selectedDate}T12:00:00`).getDay() + 6) % 7) + 1 as Weekday;
+  const resolvedOccurrences = sampleTemplates
+    .map((template) =>
+      resolveOccurrence(template, selectedDate, dateOverrides),
+    )
+    .filter((occurrence) => occurrence !== null);
 
-  const templatesForSelectedDate = sampleTemplates.filter((template) => {
-    const isCorrectWeekday = template.weekday === selectedDateWeekday;
-    const isAfterStart = selectedDate >= template.activeFrom;
-    const isBeforeEnd =
-      template.activeUntil === undefined || selectedDate <= template.activeUntil;
-
-    return isCorrectWeekday && isAfterStart && isBeforeEnd;
-  });
   const selectedDateActivities = Object.entries(activities)
       .filter(([key]) => key.startsWith(`${selectedDate}-`))
       .map(([, activity]) => activity);
@@ -366,19 +369,36 @@ export default function App() {
               {(() => {
                 const activityKey = `${selectedDate}-${hour}`;
                 const activity = activities[activityKey];
-                const recurringTemplate = templatesForSelectedDate.find(
-                  (template) => template.startHour === hour,
+                const occurrence = resolvedOccurrences.find(
+                  (item) =>
+                    item.status === "scheduled" &&
+                    item.startHour === hour,
                 );
-
-                if (!activity && recurringTemplate) {
+                if (!activity && occurrence?.status === "scheduled") {
                   return (
                     <View style={styles.templateSlot}>
-                      <Text style={styles.templateLabel}>RUTIN</Text>
-                      <Text style={styles.templateTitle}>{recurringTemplate.title}</Text>
+                      <Text style={styles.templateLabel}>
+                        {occurrence.source === "override" ? "PENGGANTI" : "RUTIN"}
+                      </Text>
+
+                      <Text style={styles.templateTitle}>
+                        {occurrence.title}
+                      </Text>
+
+                      {occurrence.source === "template" && (
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => cancelTemplateForDate(occurrence.templateId)}
+                          style={styles.cancelRoutineButton}
+                        >
+                          <Text style={styles.cancelRoutineText}>
+                            Batalkan rutin hari ini
+                          </Text>
+                        </Pressable>
+                      )}
                     </View>
                   );
                 }
-
                 if (!activity) {
                   return (
                     <Pressable
@@ -845,6 +865,19 @@ const styles = StyleSheet.create({
     marginTop: 3,
     color: "#312E81",
     fontSize: 14,
+    fontWeight: "600",
+  },
+  cancelRoutineButton: {
+    alignSelf: "flex-start",
+    marginTop: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "#FEE2E2",
+  },
+  cancelRoutineText: {
+    color: "#B91C1C",
+    fontSize: 12,
     fontWeight: "600",
   },
 });
