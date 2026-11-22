@@ -11,6 +11,7 @@ import {
 import FocusCard from "./src/components/FocusCard";
 import { ActivityEntry, ActivityKind } from "./src/types/activity";
 import { loadActivities, saveActivities } from "./src/storage/activityStorage";
+import type { RecurringTemplate, Weekday } from "./src/types/recurringTemplate";
 
 const weekdayLabels = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
 const hours = Array.from({ length: 17 }, (_, index) => index + 6);
@@ -20,6 +21,18 @@ const activityKinds: { value: ActivityKind; label: string }[] = [
   { value: "activity", label: "Kegiatan" },
   { value: "event", label: "Acara" },
   { value: "deep_focus", label: "Fokus" },
+];
+
+const sampleTemplates: RecurringTemplate[] = [
+  {
+    id: "sample-monday-study",
+    title: "Belajar rutin",
+    kind: "deep_focus",
+    weekday: 1,
+    startHour: 9,
+    durationHours: 1,
+    activeFrom: "2000-01-01",
+  },
 ];
 
 function getDateKey(date: Date): string {
@@ -89,11 +102,22 @@ export default function App() {
         year: "numeric",
       })
     : "";
-    const selectedDateActivities = Object.entries(activities)
+  const selectedDateWeekday =
+  ((new Date(`${selectedDate}T12:00:00`).getDay() + 6) % 7) + 1 as Weekday;
+
+  const templatesForSelectedDate = sampleTemplates.filter((template) => {
+    const isCorrectWeekday = template.weekday === selectedDateWeekday;
+    const isAfterStart = selectedDate >= template.activeFrom;
+    const isBeforeEnd =
+      template.activeUntil === undefined || selectedDate <= template.activeUntil;
+
+    return isCorrectWeekday && isAfterStart && isBeforeEnd;
+  });
+  const selectedDateActivities = Object.entries(activities)
       .filter(([key]) => key.startsWith(`${selectedDate}-`))
       .map(([, activity]) => activity);
 
-    const taskCount = selectedDateActivities.filter(
+  const taskCount = selectedDateActivities.filter(
       (activity) => activity.kind === "task",
     ).length;
 
@@ -342,6 +366,18 @@ export default function App() {
               {(() => {
                 const activityKey = `${selectedDate}-${hour}`;
                 const activity = activities[activityKey];
+                const recurringTemplate = templatesForSelectedDate.find(
+                  (template) => template.startHour === hour,
+                );
+
+                if (!activity && recurringTemplate) {
+                  return (
+                    <View style={styles.templateSlot}>
+                      <Text style={styles.templateLabel}>RUTIN</Text>
+                      <Text style={styles.templateTitle}>{recurringTemplate.title}</Text>
+                    </View>
+                  );
+                }
 
                 if (!activity) {
                   return (
@@ -788,5 +824,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     textAlign: "right",
+  },
+  templateSlot: {
+    flex: 1,
+    minHeight: 48,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#A5B4FC",
+    backgroundColor: "#EEF2FF",
+  },
+  templateLabel: {
+    color: "#4338CA",
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+  },
+  templateTitle: {
+    marginTop: 3,
+    color: "#312E81",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
